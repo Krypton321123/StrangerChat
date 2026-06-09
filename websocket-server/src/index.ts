@@ -6,6 +6,7 @@ interface User {
     active: boolean;
     socketId: string;
     Room?: Room; 
+    nick?: string;
 }
 
 interface Room {
@@ -17,7 +18,7 @@ interface Room {
 
 let users: User[] = [];
 let waitingUsers: User[] = []; 
-const rooms = []; 
+let rooms: Room[] = []; 
 
 const io = new Server({
     cors: {
@@ -31,14 +32,25 @@ const userConnected = (socket: Socket) => {
     io.emit("returncount", users.length); 
 }
 
+const usersInRoom = (roomId: string) => {
+    const room = rooms.find(r => r.roomId === roomId)
+    if (!room) return io.emit("count-room", 0); 
+    io.to(roomId).emit("count-room", room.users.length); 
+}
 
 
 io.on("connection", socket => {
     
     userConnected(socket); 
 
-    socket.on("find-partner", () => {
-        console.log("came here")
+    socket.on("find-partner", (nick: string) => {
+        const user = users.find(u => u.socketId === socket.id); 
+        user!.nick = nick; 
+
+        users[users.findIndex(u => u.socketId === socket.id)] = user!; 
+
+        console.log(users); 
+
         if (waitingUsers.length > 0) {
             const partner = waitingUsers.shift()!; 
             console.log(partner)
@@ -46,7 +58,8 @@ io.on("connection", socket => {
             console.log(currentUser)
 
             const room: Room = {roomId: randomUUID(), users: [partner?.socketId!, currentUser!], looking: false, messages: []}
-            console.log(room)
+
+            rooms.push(room); 
 
             socket.join(room.roomId); 
             io.sockets.sockets.get(partner?.socketId!)?.join(room.roomId)
@@ -55,6 +68,27 @@ io.on("connection", socket => {
         } else {
             waitingUsers.push(users.find(u => u.socketId === socket.id)!); 
         }
+    })
+
+    socket.on("reach-room", (roomId: string) => {
+        usersInRoom(roomId)
+    })
+
+    socket.on("leave-room", (roomId: string) => {
+        const room = rooms.find(r => r.roomId === roomId); 
+
+        if (!room?.users) return null;
+
+        room.users = room?.users.filter(u => u !== socket.id); 
+
+        rooms = rooms.filter(r => r.roomId === room.roomId); 
+        
+        rooms.push(room); 
+        usersInRoom(room.roomId); 
+    })
+
+    socket.on("cancel-search", () => {
+        waitingUsers = waitingUsers.filter(u => u.socketId !== socket.id);  
     })
 
     socket.on("disconnect", () => {

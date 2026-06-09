@@ -2,11 +2,15 @@
 
 import {X} from "lucide-react"; 
 import {useRouter} from "next/navigation"; 
+import { RefObject } from "react";
+import {Socket} from "socket.io-client"; 
 
-const CancelBtn = () => {
+const CancelBtn = ({ socket, btnRef }: {socket: Socket, btnRef: RefObject<boolean>}) => {
     const router = useRouter()
 
     const onCancel = () => {
+        btnRef.current = true; 
+        socket.emit("cancel-search"); 
         router.replace("/");
     }
      

@@ -1,0 +1,1 @@
+A platform for strangers chatting with each with shared interests and activities sharing. 
