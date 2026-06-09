@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+    --animate-glowpulse: glowpulse 3s ease-in-out infinite ;
+    --animate-glowpulsealt: glowpulsealt 3s ease-in-out infinite ;
+    --animate-float: float 5s infinite linear;
+    --animate-expand: expand 1s ease-out infinite; 
+
+    @keyframes glowpulse {
+       0%, 100% {
+        background-color: #1C00ff00; /* yellow-100 */
+    }
+    50% {
+        background-color: #616268; /* yellow-600 */
+    }
+    }
+
+    @keyframes glowpulsealt {
+        0%, 100% {
+            background-color: #1C00ff00; 
+        } 
+        50% {
+            background-color: #0d0096; 
+        }
+    }
+
+    @keyframes float {
+        0% {
+            transform: translate(10, 5);
+        } 
+        50% {
+            transform: translate(5, 10);
+        }
+        100% {
+            transform: translate(10, 5);
+        }
+    }
+
+    @keyframes expand {
+        0%  {
+           padding: 0;
+           border-color: rgba(99, 102, 241, 1);
+        } 
+        100% {
+            padding: 100;
+            border-color: rgba(99, 102, 241, 0); 
+        }
+        
+    }
+}
+
