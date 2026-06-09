@@ -1,10 +1,12 @@
 "use client"
 import useUserCount from "@/app/_hooks/useUserCount";
+import { useUserStore } from "@/store/userStore";
 
 
 const Topbar = () => {
 
     const count = useUserCount(); 
+    
 
   return (
     <div className="w-full fixed top-0 py-3 bg-[#1E1E24]">

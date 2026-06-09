@@ -21,8 +21,10 @@
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
     "socket.io-client": "^4.8.3",
+    "uuidv4": "^6.2.13",
     "ws": "^8.21.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

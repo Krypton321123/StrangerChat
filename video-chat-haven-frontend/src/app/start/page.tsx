@@ -5,12 +5,18 @@ import CancelBtn from "../_components/start/CancelBtn";
 import { useSocket } from "../_Providers/WebSocketProvider";
 import { useEffect, useRef, useState } from "react";
 import {useRouter} from "next/navigation"
+import { useUserStore } from "@/store/userStore";
 
 const Start = () => {
             
     const router = useRouter(); 
     const [nameModal, setNameModal] = useState(true); 
     const [nick, setNick] = useState(""); 
+    const setNickStore = useUserStore(state => state.setNick); 
+
+    const onDone = () => {
+        setNickStore(nick); 
+    }
 
     const socket = useSocket(); 
     const cancelBtnRef = useRef(false); 
@@ -39,6 +45,7 @@ const Start = () => {
                     <input value={nick} onChange={(e) => setNick(e.target.value)} placeholder="BraveEntertainment..." className="w-full border-gray-500 bg-[#151515] active:outline-none focus:outline-none p-3 rounded-full" />
                     <button onClick={() => {
                         if (!nick) alert('enter a valid nickname')
+                        onDone();
                         setNameModal(false)
                     }} className="w-full text-md rounded-full bg-[#6366f1] py-2 cursor-pointer hover:opacity-75 transition-opacity duration-150 linear">Done</button>
                 </div>     
