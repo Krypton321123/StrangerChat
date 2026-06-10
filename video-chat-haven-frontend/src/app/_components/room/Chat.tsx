@@ -4,54 +4,40 @@ import { Socket } from "socket.io-client";
 import {v4 as uuid} from "uuid"
 import { useEffect, useRef, useState } from "react";
 import { useUserStore } from "@/store/userStore";
+import useTyping from "@/app/_hooks/useTyping";
+import {ThreeDots} from "react-loader-spinner"
 interface Message {
     messageId: string; 
     content: string; 
     sentBy: string;
     nick?: string;
+    typingIndicator?: boolean; 
 }
 
 const Chat = ({socket, users, roomId} : {socket: Socket, users: any[], roomId: string}) => {
     const [message, setMessage] = useState("");     
     const [messages, setMessages] = useState<Message[]>([]); 
     const [focus, setFocus] = useState(false); 
-    const [typing, setTyping] = useState<string[]>([])
+    const typing = useTyping(socket, messages, setMessages, users); 
     const userId = useUserStore(state => state.userId); 
     const inputRef = useRef<HTMLInputElement | null>(null);
+    let   timeoutRef = useRef<any>(null)
 
     const onFocus = () => setFocus(true); 
     const onBlur = () => setFocus(false); 
-    console.log(typing)
 
     useEffect(() => {
         if (!socket) return;
         socket.on("message-recieved", (m: Message) => {
+            console.log("Recieved"); 
             setMessages(prev => [...prev, m]); 
         })
-        socket.on("user-typing", (id) => {
+    }, [socket])
 
-            if (!users || users.length === 0) return;
-            console.log("user-typing", id);
-            console.log("users", users)
-            const typingUserId: string = users.find(u => u.socketId === id).userId; 
-            console.log(typingUserId, "is this")
-            let remove;
-            if (!typingUserId) return; 
+    console.log("TYPING:", typing)
 
-            if (typing.includes(typingUserId)) {clearTimeout(remove); remove = setTimeout(() => {
-                setTyping(prev => prev.filter(x => x !== typingUserId))
-            }, 4000); return;}; 
-
-            setTyping(prev => [...prev, typingUserId])
-
-            remove = setTimeout(() => {
-                setTyping(prev => prev.filter(x => x !== typingUserId))
-            }, 4000)
-        })
-    }, [socket, users])
-    
     const onSendMessage = () => {
-        if (!message) alert('Please enter a valid message'); 
+        if (!message) return alert('Please enter a valid message'); 
         
         const messageObj: Message = {
             messageId: uuid(), 
@@ -59,7 +45,15 @@ const Chat = ({socket, users, roomId} : {socket: Socket, users: any[], roomId: s
             sentBy: userId,
         }
 
-        setMessages(prev => [...prev, {...messageObj, nick: "You"}]); 
+        setMessages(prev => {
+            console.log("messages", prev)
+            if (prev[prev.length - 1]?.typingIndicator) {
+                const withoutTyping = prev.slice(0, prev.length - 1) 
+                return [...withoutTyping, messageObj, prev[prev.length - 1]]; 
+            } else {
+                return [...prev, messageObj]; 
+            }
+        }); 
         setMessage("")
 
         socket.emit("send-chat-message", messageObj); 
@@ -67,7 +61,16 @@ const Chat = ({socket, users, roomId} : {socket: Socket, users: any[], roomId: s
 
     useEffect(() => {
         
-        if (focus) socket.emit("start-typing", roomId);
+        if (!focus) {
+            if (timeoutRef.current) return clearTimeout(timeoutRef.current); 
+            else return;
+        } 
+        
+        socket.emit("start-typing", roomId); 
+        timeoutRef.current = setTimeout(() => {
+            console.log("came here in time out of focus");
+            if (focus) socket.emit("start-typing", roomId);  
+        }, 4000)
        
     }, [socket, focus])
 
@@ -82,13 +85,14 @@ const Chat = ({socket, users, roomId} : {socket: Socket, users: any[], roomId: s
                         <div className={`w-full flex items-center ${item.sentBy === userId ? "justify-end" : "justify-start"}  text-white`} key={item.messageId}>
                             <div className=" text-white p-3 border-white gap-y-2 flex flex-col">
                             <p className="bg-transparent font-semibold text-end tracking-wider">{item.nick}</p>
-                            <p className={`bg-[#343541] text-center p-3 rounded-b-xl ${item.sentBy === userId ? "rounded-tl-xl" : "rounded-tr-xl"} `}>{item.content}</p>
+                            <p className={`bg-[#343541] text-center p-3 rounded-b-xl ${item.sentBy === userId ? "rounded-tl-xl" : "rounded-tr-xl"} `}>{item.typingIndicator ? <ThreeDots height="18" width="18" color="#fff"/> : item.content}</p>
                             </div>
                         </div>
                     ))}
                 </div> : <div className="flex flex-1 justify-center items-center border-b border-[#464554]">
                     <p className="text-white text-2xl">No messages yet.</p>
                 </div>}
+                
             </div>
             <div className="h-18 flex bg-[#19191A]">
                 <div className="flex flex-1  items-center gap-x-2 px-8 ">

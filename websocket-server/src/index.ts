@@ -49,7 +49,7 @@ const userConnected = (socket: Socket) => {
 const usersInRoom = (roomId: string) => {
     const room = rooms.find(r => r.roomId === roomId)
     if (!room) return io.emit("count-room", 0);
-    const usersToSend: Pick<User, 'userId'| 'socketId'>[] = room.users.map(u => users.find(user => u === user.socketId)).filter(a => a !== undefined ).map(x => {return {userId: x.userId, socketId: x.socketId}}); 
+    const usersToSend: Pick<User, 'userId'| 'socketId' | 'nick'>[] = room.users.map(u => users.find(user => u === user.socketId)).filter(a => a !== undefined ).map(x => {return {userId: x.userId, socketId: x.socketId, nick: x.nick || ""}}); 
     io.to(roomId).emit("count-room", usersToSend); 
 }
 
@@ -117,6 +117,8 @@ io.on("connection", socket => {
     })
 
     socket.on("send-chat-message", (message: Message) => {
+        console.log(message.sentBy, users); 
+        console.log("came here")
         const user = users.find(u => u.userId === message.sentBy); 
         console.log("SEND MESSAGE USER:", user); 
         message.nick = user?.nick || ""; 

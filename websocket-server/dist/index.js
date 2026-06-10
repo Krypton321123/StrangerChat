@@ -25,7 +25,7 @@ const usersInRoom = (roomId) => {
     const room = rooms.find(r => r.roomId === roomId);
     if (!room)
         return io.emit("count-room", 0);
-    const usersToSend = room.users.map(u => users.find(user => u === user.socketId)).filter(a => a !== undefined).map(x => { return { userId: x.userId, socketId: x.socketId }; });
+    const usersToSend = room.users.map(u => users.find(user => u === user.socketId)).filter(a => a !== undefined).map(x => { return { userId: x.userId, socketId: x.socketId, nick: x.nick || "" }; });
     io.to(roomId).emit("count-room", usersToSend);
 };
 io.on("connection", socket => {
@@ -75,6 +75,8 @@ io.on("connection", socket => {
         waitingUsers = waitingUsers.filter(u => u.socketId !== socket.id);
     });
     socket.on("send-chat-message", (message) => {
+        console.log(message.sentBy, users);
+        console.log("came here");
         const user = users.find(u => u.userId === message.sentBy);
         console.log("SEND MESSAGE USER:", user);
         message.nick = (user === null || user === void 0 ? void 0 : user.nick) || "";
