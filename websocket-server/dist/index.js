@@ -1,10 +1,26 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_1 = require("socket.io");
 const crypto_1 = require("crypto");
+const wrtc_1 = __importDefault(require("@roamhq/wrtc"));
 let users = [];
 let waitingUsers = [];
 let rooms = [];
+let receiverPcs = new Map();
+let senderPcs = new Map();
+let roomStreamReg = new Map();
 const io = new socket_io_1.Server({
     cors: {
         origin: "*",
@@ -21,10 +37,89 @@ const userConnected = (socket) => {
     socket.emit("init-user", user);
     io.emit("user-count", users.length);
 };
-const usersInRoom = (roomId) => {
+const pc_config = {
+    iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+    ],
+};
+// the socket is sending their stream down
+const createRecieverPeerConnection = (roomId, socket) => {
+    try {
+        const pc = new wrtc_1.default.RTCPeerConnection(pc_config);
+        receiverPcs.set(socket.id, pc);
+        pc.onicecandidate = (ev) => {
+            socket.emit("getSenderCandidate", {
+                candidate: ev.candidate,
+            });
+        };
+        pc.ontrack = (ev) => {
+            console.log("SERVER ontrack fired for", socket.id, "kind:", ev.track.kind);
+            let roomStreams = roomStreamReg.get(roomId);
+            if (!roomStreams) {
+                roomStreams = new Map();
+                roomStreamReg.set(roomId, roomStreams);
+            }
+            let stream = roomStreams.get(socket.id);
+            if (!stream) {
+                stream = new wrtc_1.default.MediaStream();
+                roomStreams.set(socket.id, stream);
+            }
+            stream.addTrack(ev.track);
+            console.log("track count for", socket.id, ":", stream.getTracks().length);
+            if (stream.getTracks().length === 2) {
+                console.log("SERVER: both tracks ready, emitting new-user-enter for", socket.id);
+                socket.broadcast.to(roomId).emit("new-user-enter", socket.id);
+            }
+        };
+        return pc;
+    }
+    catch (err) {
+        console.log("create reciever error", err);
+    }
+};
+// socket.id is the reciever,
+const createSenderPeerConnection = (roomId, socket, senderId) => {
+    var _a;
+    const pc = new wrtc_1.default.RTCPeerConnection(pc_config);
+    try {
+        // check if sender is already registered in the map
+        if (senderPcs.has(senderId)) {
+            const existingRecievers = senderPcs.get(senderId);
+            const newRecievers = new Map([...existingRecievers, [socket.id, pc]]);
+            senderPcs.set(senderId, newRecievers);
+        }
+        else {
+            senderPcs.set(senderId, new Map([[socket.id, pc]]));
+        }
+        pc.onicecandidate = (ev) => {
+            socket.emit("getRecieverCandidate", {
+                id: senderId,
+                candidate: ev.candidate,
+            });
+        };
+        const userStream = (_a = roomStreamReg.get(roomId)) === null || _a === void 0 ? void 0 : _a.get(senderId);
+        console.log("SERVER: forwarding stream for", senderId, "tracks:", userStream === null || userStream === void 0 ? void 0 : userStream.getTracks().length);
+        userStream === null || userStream === void 0 ? void 0 : userStream.getTracks().forEach((t) => pc.addTrack(t, userStream));
+        return pc;
+    }
+    catch (err) {
+        console.error("SENDER PEER CONN ERROR", err);
+    }
+};
+const usersInRoom = (roomId, socket, leave) => {
     const room = rooms.find((r) => r.roomId === roomId);
+    const roomIndex = rooms.findIndex((r) => r.roomId === roomId);
     if (!room)
         return io.emit("count-room", 0);
+    if (!leave) {
+        if (!room.users.includes(socket.id)) {
+            room.users.push(socket.id);
+            rooms[roomIndex] = room;
+        }
+        else
+            ;
+    }
     const usersToSend = room.users
         .map((u) => users.find((user) => u === user.socketId))
         .filter((a) => a !== undefined)
@@ -69,7 +164,7 @@ io.on("connection", (socket) => {
         }
     });
     socket.on("reach-room", (roomId) => {
-        usersInRoom(roomId);
+        usersInRoom(roomId, socket);
     });
     socket.on("leave-room", (roomId) => {
         const room = rooms.find((r) => r.roomId === roomId);
@@ -80,7 +175,7 @@ io.on("connection", (socket) => {
         users[index] = Object.assign(Object.assign({}, users[index]), { Room: undefined });
         rooms = rooms.filter((r) => r.roomId === room.roomId);
         rooms.push(room);
-        usersInRoom(room.roomId);
+        usersInRoom(room.roomId, socket, true);
     });
     socket.on("cancel-search", () => {
         waitingUsers = waitingUsers.filter((u) => u.socketId !== socket.id);
@@ -98,7 +193,7 @@ io.on("connection", (socket) => {
         socket.to(roomId).emit("user-typing", socket.id);
     });
     socket.on("chat-offer", (offer, roomId, userId, peerId) => {
-        const targetUser = users.find(u => u.userId === peerId);
+        const targetUser = users.find((u) => u.userId === peerId);
         if (!targetUser)
             return;
         socket.to(targetUser.socketId).emit("offer", offer, userId);
@@ -117,6 +212,50 @@ io.on("connection", (socket) => {
             .to(targetUser.socketId)
             .emit("ice-candidate", icecandidate, senderId);
     });
+    // the client is offering to send their stream
+    socket.on("senderOffer", (roomId, sdp) => __awaiter(void 0, void 0, void 0, function* () {
+        console.log("SERVER: senderOffer from", socket.id);
+        const pc = createRecieverPeerConnection(roomId, socket);
+        yield (pc === null || pc === void 0 ? void 0 : pc.setRemoteDescription(sdp));
+        let localSdp = yield (pc === null || pc === void 0 ? void 0 : pc.createAnswer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+        }));
+        yield (pc === null || pc === void 0 ? void 0 : pc.setLocalDescription(localSdp));
+        socket.emit("getSenderAnswer", { sdp: localSdp });
+    }));
+    // the client is sending their ice info
+    socket.on("senderCandidate", (candidate) => __awaiter(void 0, void 0, void 0, function* () {
+        let pc = receiverPcs.get(socket.id);
+        if (!candidate)
+            return;
+        yield pc.addIceCandidate(new wrtc_1.default.RTCIceCandidate(candidate));
+    }));
+    socket.on("receiverOffer", (_a) => __awaiter(void 0, [_a], void 0, function* ({ roomId, sdp, senderId }) {
+        var _b;
+        console.log("SERVER receiverOffer - roomId:", roomId, "senderId:", senderId);
+        console.log("SERVER roomStreamReg keys:", [...roomStreamReg.keys()]);
+        const roomStreams = roomStreamReg.get(roomId);
+        console.log("SERVER roomStreams for room:", roomStreams ? [...roomStreams.keys()] : "NONE");
+        console.log("SERVER stream for sender:", (_b = roomStreamReg.get(roomId)) === null || _b === void 0 ? void 0 : _b.get(senderId));
+        const pc = createSenderPeerConnection(roomId, socket, senderId);
+        yield (pc === null || pc === void 0 ? void 0 : pc.setRemoteDescription(sdp));
+        let localSdp = yield (pc === null || pc === void 0 ? void 0 : pc.createAnswer({
+            offerToReceiveAudio: false,
+            offerToReceiveVideo: false,
+        }));
+        yield (pc === null || pc === void 0 ? void 0 : pc.setLocalDescription(localSdp));
+        io.to(socket.id).emit("getReceiverAnswer", {
+            id: senderId,
+            sdp: localSdp,
+        });
+    }));
+    // the server is sending ice info
+    socket.on("receiverCandidate", (_a) => __awaiter(void 0, [_a], void 0, function* ({ id, candidate }) {
+        var _b;
+        let pc = (_b = senderPcs.get(id)) === null || _b === void 0 ? void 0 : _b.get(socket.id);
+        yield (pc === null || pc === void 0 ? void 0 : pc.addIceCandidate(new wrtc_1.default.RTCIceCandidate(candidate)));
+    }));
     socket.on("disconnect", () => {
         const newUsers = users.filter((s) => s.socketId !== socket.id);
         users = [...newUsers];

@@ -11,7 +11,7 @@ export function WebSocketProvider({ children } : {children: React.ReactNode}) {
 
     useEffect(() => {
         if (!socket) {
-            setSocket(io("192.168.150.79:3002")); 
+            setSocket(io("localhost:3002")); 
         }
 
         return () => {
