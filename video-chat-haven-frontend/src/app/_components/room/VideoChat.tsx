@@ -34,11 +34,9 @@ const VideoChat = ({
   const userId = useUserStore((state) => state.userId);
   const userNick = useUserStore((state) => state.nick);
 
-  console.log(peerIds);
 
   useEffect(() => {
     const handleUserDevices = async () => {
-      console.log("reached here");
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true,
@@ -60,18 +58,12 @@ const VideoChat = ({
   }, []);
 
   useEffect(() => {
-    console.log("users useEffect fired", {
-      hasSocket: !!socket,
-      usersCount: users.length,
-      hasStream: !!userStreamRef.current,
-      users,
-    });
+
     if (!socket || !users || users.length === 0) return;
     if (!localStream) return;
     if (!userStreamRef.current || !userStreamRef) return;
 
     users.forEach(async (u) => {
-          console.log("checking user", u.userId, "my id", userId, "same?", u.userId === userId);
       if (u.userId === userId) return;
       if (peerConnectionRefs.current.has(u.userId)) return;
 
@@ -94,21 +86,18 @@ const VideoChat = ({
   }, [socket, users, peerIds, localStream]);
 
   const createConnection = (peerId: string): RTCPeerConnection => {
-    console.log("createConnection called for", peerId);
     const peerConn = new RTCPeerConnection(ICE_SERVERS);
 
     const peerConnRef = { current: peerConn } as RefObject<RTCPeerConnection>;
     peerConnectionRefs.current.set(peerId, peerConnRef);
 
     peerConn.onicecandidate = (ev) => {
-      console.log("ICE candidate for", peerId, ev.candidate);
       if (ev.candidate) {
         socket.emit("ice-candidate", ev.candidate, roomId, peerId, userId);
       }
     };
 
     peerConn.ontrack = (ev) => {
-      console.log("ontrack fired for", peerId, ev.streams);
       const ref = peerVideoRefs.current.get(peerId);
       if (ref?.current) {
         ref.current.srcObject = ev.streams[0];
@@ -117,17 +106,8 @@ const VideoChat = ({
       }
     };
 
-    peerConn.onconnectionstatechange = () => {
-      console.log("connection state for", peerId, peerConn.connectionState);
-    };
 
-    peerConn.onsignalingstatechange = () => {
-      console.log("signaling state for", peerId, peerConn.signalingState);
-    };
-
-    console.log("about to setPeerIds, adding", peerId);
     setPeerIds((prev) => {
-      console.log("setPeerIds updater called, prev =", prev, "adding", peerId);
       return prev.includes(peerId) ? prev : [...prev, peerId];
     });
 
@@ -147,7 +127,6 @@ const VideoChat = ({
 
   useEffect(() => {
     if (!socket) return;
-    console.log("socket useEffect running, socket id:", socket.id);
 
     const handleOffer = async (
       offer: RTCSessionDescription,
