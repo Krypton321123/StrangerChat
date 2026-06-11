@@ -5,6 +5,7 @@ import Topbar from "../_components/room/Topbar";
 import { useSocket } from "../_Providers/WebSocketProvider";
 import { useEffect, useState } from "react";
 import Chat from "../_components/room/Chat";
+import VideoChat from "../_components/room/VideoChat";
 
 const Room = () => {
     const params = useParams(); 
@@ -32,7 +33,7 @@ const Room = () => {
             <div className="flex flex-1  ">
           
                 <div className="flex flex-1">
-                    placeholder for videos
+                    <VideoChat roomId={params.roomId!.toString()} socket={socket!} users={users}/>  
                 </div>
                 <div className="">
                     <Chat users={users} socket={socket!} roomId={params.roomId?.toString()!} />

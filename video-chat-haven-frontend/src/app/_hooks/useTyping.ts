@@ -16,13 +16,13 @@ const useTyping = (socket: Socket, messages: Message[], setMessages: Dispatch<Se
     const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
     const messageIdsRef = useRef<Map<string, string>>(new Map()); 
 
+    // insert typing indicator message for each typing entry
     useEffect(() => {
         if (!users) return; 
         if (typing.size === 0 || users.length === 0) return; 
 
         typing.forEach((x) => {
             
-
             const user = users.find(u => u.socketId === x); 
             console.log(user);
 
@@ -41,6 +41,7 @@ const useTyping = (socket: Socket, messages: Message[], setMessages: Dispatch<Se
         })
     }, [typing, users])
 
+    // cleanup of indicator if an actual message from the user comes
     useEffect(() => {
         if (!users || users.length === 0) return; 
         if (!messages || messages.length === 0) return; 
@@ -61,6 +62,7 @@ const useTyping = (socket: Socket, messages: Message[], setMessages: Dispatch<Se
         }
     }, [messages, users])
 
+    // effect for maintaining typing state
     useEffect(() => {
         if (!socket) return;
         socket.on("user-typing", socketId => {
