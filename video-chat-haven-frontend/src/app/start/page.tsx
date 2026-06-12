@@ -24,13 +24,16 @@ const Start = () => {
     useEffect(() => {
         if (!nameModal) socket?.emit("find-partner", nick); 
 
+        console.log("came here", "to this "); 
         socket?.on("match-found", (r: string) => {
+        console.log(r)
         router.push(`/${r}`) 
         })
 
         // leave search if leave page
         return () => {
             console.log(cancelBtnRef.current); 
+            socket?.off("match-found"); 
             if (!cancelBtnRef.current) socket?.emit("cancel-search"); 
         }
     }, [socket, nameModal])

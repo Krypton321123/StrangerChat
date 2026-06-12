@@ -9,11 +9,11 @@ const Topbar = ({noOfUser, socket, roomId}: {noOfUser: number, socket: Socket, r
     }
 
     return (
-        <div className="hidden lg:blockw-full border-b border-[#908fa0] py-4 ">
+        <div className="hidden lg:block w-full border-b border-[#464554] py-4 ">
             <div className="max-w-7xl px-4 lg:px-0 flex mx-auto justify-between items-center">
                 <div className="flex items-center gap-x-3">
                     <p className="text-3xl text-[#8083ff] font-bold">Stranger Chat</p>
-                    <p className="border rounded-full border-[#908fa0] mt-1 font-bold text-white px-3 text-sm py-1 flex items-center justify-center gap-x-2"> <span className="block w-2 h-2 rounded-full bg-green-500 animate-pulse"/> {noOfUser} In Room</p>
+                    <p className="border rounded-full border-[#464554] mt-1 font-bold text-white px-3 text-sm py-1 flex items-center justify-center gap-x-2"> <span className="block w-2 h-2 rounded-full bg-green-500 animate-pulse"/> {noOfUser} In Room</p>
                 </div>
                 <button onClick={onLeave} className="px-3 py-2 bg-red-900/20 flex gap-x-1 items-center whitespace-nowrap border border-red-500 rounded-xl text-red-500">
                     <SquareArrowRightExit /> Leave 

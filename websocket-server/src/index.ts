@@ -26,6 +26,7 @@ interface Message {
 
 let users: User[] = [];
 let waitingUsers: User[] = [];
+let waitingRooms: Room[] = []
 let rooms: Room[] = [];
 let receiverPcs: Map<string, wrtc.RTCPeerConnection> = new Map();
 let senderPcs: Map<string, Map<string, RTCPeerConnection>> = new Map();
@@ -44,7 +45,7 @@ const io = new Server({
 const userConnected = (socket: Socket) => {
   const user = { socketId: socket.id, userId: randomUUID(), active: false };
   users.push(user);
-  console.log(user.userId);
+  console.log(user.userId, user.socketId);
 
   socket.emit("init-user", user);
   io.emit("user-count", users.length);
@@ -158,6 +159,7 @@ io.on("connection", (socket) => {
 
   socket.on("find-partner", (nick: string) => {
     const user = users.find((u) => u.socketId === socket.id);
+    console.log(users); 
     user!.nick = nick;
 
     users[users.findIndex((u) => u.socketId === socket.id)] = user!;
@@ -183,7 +185,7 @@ io.on("connection", (socket) => {
 
       rooms.push(room);
       currentUser!.Room = room;
-      users[users.findIndex((u) => currentUser.socketId === socket.id)] =
+      users[users.findIndex((u) => currentUser.socketId === u.socketId)] =
         currentUser;
 
       partner!.Room = room;
@@ -197,6 +199,29 @@ io.on("connection", (socket) => {
       waitingUsers.push(users.find((u) => u.socketId === socket.id)!);
     }
   });
+
+  socket.on("find-partner-room", (roomId) => {
+    console.log("Reached here"); 
+    const room = rooms.find(r => r.roomId === roomId); 
+    const roomIndex = rooms.findIndex(r => r.roomId === roomId); 
+    if (!room) return; 
+
+    if (waitingUsers.length > 0 || waitingRooms.length > 0) {
+
+      console.log(waitingUsers);
+
+      const user = waitingUsers.shift()!; 
+
+      room.users.push(user.socketId); 
+
+      rooms[roomIndex] = room; 
+      console.log(rooms, room.users); 
+
+      io.to(user.socketId).emit("match-found", roomId)
+    } else {
+      waitingRooms.push(room); 
+    }
+  })
 
   socket.on("reach-room", (roomId: string) => {
     usersInRoom(roomId, socket);

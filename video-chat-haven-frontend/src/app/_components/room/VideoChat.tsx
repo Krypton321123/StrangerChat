@@ -168,19 +168,23 @@ const VideoChat = ({
   return (
     <div className="w-full h-full z-0 ">
       <div className="w-full flex justify-center ">
+        <button onClick={() => {
+          socket.emit("find-partner-room", roomId); 
+        }} className="bg-white p-3 text-black rounded-lg">Add</button>
         <FloatingDock />
       </div>
       <div className="grid h-full justify-end place-items-center grid-cols-2 gap-x-2  p-4">
         <div className="relative h-[20vh] w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center">
-            <p className="absolute bottom-5 left-5 text-white">hi</p>
-            <video  className="h-full w-full object-center rounded-xl" autoPlay ref={userVideoRef}></video>
+            <p className="absolute bottom-5 left-5  rounded-lg bg-[#1B1212] opacity-50 font-medium px-2  text-white">{userNick}</p>
+            <video  className="h-full w-full object-cover rounded-xl" autoPlay ref={userVideoRef}></video>
         </div>
         {receiverStreams.size !== 0 &&
           Array.from(receiverStreams).map(([socketId, stream]) => (
             <div
               key={socketId}
-              className="h-[20vh] w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center"
+              className="h-[20vh] relative w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center"
             >
+              <p className="absolute bottom-5 left-5  rounded-lg bg-[#1B1212] opacity-50 font-medium px-2  text-white">{users.find(u => u.socketId === socketId)?.nick || ""}</p>
                 <video
                   autoPlay
                   className="w-full object-cover h-full rounded-xl"
