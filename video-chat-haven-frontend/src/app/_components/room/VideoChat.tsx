@@ -166,34 +166,28 @@ const VideoChat = ({
   };
 
   return (
-    <div className="w-full h-full ">
+    <div className="w-full h-full z-0 ">
       <div className="w-full flex justify-center ">
         <FloatingDock />
       </div>
-      <div className="grid grid-cols-1 justify-center place-items-center lg:grid-cols-2 gap-x-2 gap-y-2 p-4">
-        <div className=" rounded-full flex justify-center items-center p-4 bg-slate-600">
-          <p className="text-white font-bold text-2xl">{userNick}</p>
-          <video autoPlay ref={userVideoRef}></video>
+      <div className="grid h-full justify-end place-items-center grid-cols-2 gap-x-2  p-4">
+        <div className="relative h-[20vh] w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center">
+            <p className="absolute bottom-5 left-5 text-white">hi</p>
+            <video  className="h-full w-full object-center rounded-xl" autoPlay ref={userVideoRef}></video>
         </div>
         {receiverStreams.size !== 0 &&
           Array.from(receiverStreams).map(([socketId, stream]) => (
             <div
               key={socketId}
-              className="h-[30vh] w-[30vw] rounded-xl bg-[#1A1A1B] flex justify-center items-center"
+              className="h-[20vh] w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center"
             >
-              <div className=" rounded-full flex justify-center items-center p-4 bg-slate-600">
-                <p className="text-white font-bold text-2xl">
-                  {users
-                    .find((u) => u.socketId === socketId)!
-                    .nick[0].toUpperCase() || "K"}
-                </p>
                 <video
                   autoPlay
+                  className="w-full object-cover h-full rounded-xl"
                   ref={(el) => {
                     if (el && el.srcObject !== stream) el.srcObject = stream;
                   }}
                 ></video>
-              </div>
             </div>
           ))}
       </div>

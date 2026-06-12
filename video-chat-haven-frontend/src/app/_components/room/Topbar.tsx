@@ -9,7 +9,7 @@ const Topbar = ({noOfUser, socket, roomId}: {noOfUser: number, socket: Socket, r
     }
 
     return (
-        <div className="w-full border-b border-[#908fa0] py-4 ">
+        <div className="hidden lg:blockw-full border-b border-[#908fa0] py-4 ">
             <div className="max-w-7xl px-4 lg:px-0 flex mx-auto justify-between items-center">
                 <div className="flex items-center gap-x-3">
                     <p className="text-3xl text-[#8083ff] font-bold">Stranger Chat</p>

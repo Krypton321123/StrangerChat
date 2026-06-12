@@ -54,7 +54,6 @@ const createRecieverPeerConnection = (roomId, socket) => {
             });
         };
         pc.ontrack = (ev) => {
-            console.log("SERVER ontrack fired for", socket.id, "kind:", ev.track.kind);
             let roomStreams = roomStreamReg.get(roomId);
             if (!roomStreams) {
                 roomStreams = new Map();
@@ -66,9 +65,7 @@ const createRecieverPeerConnection = (roomId, socket) => {
                 roomStreams.set(socket.id, stream);
             }
             stream.addTrack(ev.track);
-            console.log("track count for", socket.id, ":", stream.getTracks().length);
             if (stream.getTracks().length === 2) {
-                console.log("SERVER: both tracks ready, emitting new-user-enter for", socket.id);
                 socket.broadcast.to(roomId).emit("new-user-enter", socket.id);
             }
         };
@@ -78,7 +75,7 @@ const createRecieverPeerConnection = (roomId, socket) => {
         console.log("create reciever error", err);
     }
 };
-// socket.id is the reciever,
+// socket.id is the reciever
 const createSenderPeerConnection = (roomId, socket, senderId) => {
     var _a;
     const pc = new wrtc_1.default.RTCPeerConnection(pc_config);
@@ -99,7 +96,6 @@ const createSenderPeerConnection = (roomId, socket, senderId) => {
             });
         };
         const userStream = (_a = roomStreamReg.get(roomId)) === null || _a === void 0 ? void 0 : _a.get(senderId);
-        console.log("SERVER: forwarding stream for", senderId, "tracks:", userStream === null || userStream === void 0 ? void 0 : userStream.getTracks().length);
         userStream === null || userStream === void 0 ? void 0 : userStream.getTracks().forEach((t) => pc.addTrack(t, userStream));
         return pc;
     }
@@ -232,12 +228,7 @@ io.on("connection", (socket) => {
         yield pc.addIceCandidate(new wrtc_1.default.RTCIceCandidate(candidate));
     }));
     socket.on("receiverOffer", (_a) => __awaiter(void 0, [_a], void 0, function* ({ roomId, sdp, senderId }) {
-        var _b;
-        console.log("SERVER receiverOffer - roomId:", roomId, "senderId:", senderId);
-        console.log("SERVER roomStreamReg keys:", [...roomStreamReg.keys()]);
         const roomStreams = roomStreamReg.get(roomId);
-        console.log("SERVER roomStreams for room:", roomStreams ? [...roomStreams.keys()] : "NONE");
-        console.log("SERVER stream for sender:", (_b = roomStreamReg.get(roomId)) === null || _b === void 0 ? void 0 : _b.get(senderId));
         const pc = createSenderPeerConnection(roomId, socket, senderId);
         yield (pc === null || pc === void 0 ? void 0 : pc.setRemoteDescription(sdp));
         let localSdp = yield (pc === null || pc === void 0 ? void 0 : pc.createAnswer({
