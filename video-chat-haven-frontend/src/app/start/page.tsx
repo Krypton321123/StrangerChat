@@ -43,7 +43,7 @@ const Start = () => {
             <Topbar />
 
             {nameModal && <div className="backdrop-blur-sm  top-0 left-0 z-0 fixed w-screen h-screen flex justify-center items-center text-white "> 
-                <div className="z-15 bg-black p-3 w-[25vw] py-4 flex flex-col gap-y-4 rounded-2xl"> 
+                <div className="z-15 bg-black p-3 min-w-[25vw] py-4 flex flex-col gap-y-4 rounded-2xl"> 
                     <p className="text-2xl font-bold tracking-tight">Enter a Nickname for yourself</p>
                     <input value={nick} onChange={(e) => setNick(e.target.value)} placeholder="BraveEntertainment..." className="w-full border-gray-500 bg-[#151515] active:outline-none focus:outline-none p-3 rounded-full" />
                     <button onClick={() => {

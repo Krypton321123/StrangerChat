@@ -22,6 +22,7 @@ let rooms = [];
 let receiverPcs = new Map();
 let senderPcs = new Map();
 let roomStreamReg = new Map();
+let streamReadyUsers = new Map(); // room -> socketid mapping
 const io = new socket_io_1.Server({
     cors: {
         origin: "*",
@@ -55,6 +56,7 @@ const createRecieverPeerConnection = (roomId, socket) => {
             });
         };
         pc.ontrack = (ev) => {
+            var _a;
             let roomStreams = roomStreamReg.get(roomId);
             if (!roomStreams) {
                 roomStreams = new Map();
@@ -67,6 +69,10 @@ const createRecieverPeerConnection = (roomId, socket) => {
             }
             stream.addTrack(ev.track);
             if (stream.getTracks().length === 2) {
+                if (!streamReadyUsers.has(roomId)) {
+                    streamReadyUsers.set(roomId, new Set());
+                }
+                (_a = streamReadyUsers.get(roomId)) === null || _a === void 0 ? void 0 : _a.add(socket.id);
                 socket.broadcast.to(roomId).emit("new-user-enter", socket.id);
             }
         };
@@ -111,6 +117,7 @@ const usersInRoom = (roomId, socket, leave) => {
         return io.emit("count-room", 0);
     if (!leave) {
         if (!room.users.includes(socket.id)) {
+            console.log("came here in add user");
             room.users.push(socket.id);
             rooms[roomIndex] = room;
         }
@@ -123,6 +130,7 @@ const usersInRoom = (roomId, socket, leave) => {
         .map((x) => {
         return { userId: x.userId, socketId: x.socketId, nick: x.nick || "" };
     });
+    console.log("userstosend", usersToSend);
     io.to(roomId).emit("count-room", usersToSend);
 };
 io.on("connection", (socket) => {
@@ -180,9 +188,15 @@ io.on("connection", (socket) => {
         }
     });
     socket.on("reach-room", (roomId) => {
+        socket.join(roomId);
         usersInRoom(roomId, socket);
+        const readyInRoom = streamReadyUsers.get(roomId);
+        console.log("readyinroom", readyInRoom);
+        const readyUsers = readyInRoom ? Array.from(readyInRoom).filter(u => socket.id !== u) : [];
+        socket.emit("existing-streams-ready", readyUsers);
     });
     socket.on("leave-room", (roomId) => {
+        var _a;
         const room = rooms.find((r) => r.roomId === roomId);
         if (!(room === null || room === void 0 ? void 0 : room.users))
             return null;
@@ -192,6 +206,7 @@ io.on("connection", (socket) => {
         rooms = rooms.filter((r) => r.roomId === room.roomId);
         rooms.push(room);
         usersInRoom(room.roomId, socket, true);
+        (_a = streamReadyUsers.get(roomId)) === null || _a === void 0 ? void 0 : _a.delete(socket.id);
     });
     socket.on("cancel-search", () => {
         waitingUsers = waitingUsers.filter((u) => u.socketId !== socket.id);
@@ -271,6 +286,7 @@ io.on("connection", (socket) => {
         const newUsers = users.filter((s) => s.socketId !== socket.id);
         users = [...newUsers];
         io.emit("user-count", users.length);
+        streamReadyUsers.forEach(set => set.delete(socket.id));
         console.log("User disconnected");
     });
 });

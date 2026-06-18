@@ -14,10 +14,12 @@ const Room = () => {
     const [users, setUsers] = useState([]); 
 
     useEffect(() => {
+        console.log("emitted reach-room", socket?.id)
         socket?.emit("reach-room", params.roomId); 
 
         socket?.on("count-room", (n) => {
             if (n === 0) alert("Room doesn't exist"); 
+            console.log("received count room", n)
             setUsers(n)
             setUserCount(n.length); 
         })

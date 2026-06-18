@@ -1,6 +1,13 @@
 "use client";
 import { useUserStore } from "@/store/userStore";
-import { createRef, RefObject, useEffect, useRef, useState } from "react";
+import {
+  createRef,
+  RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Socket } from "socket.io-client";
 import FloatingDock from "./FloatingDock";
 
@@ -26,6 +33,48 @@ const VideoChat = ({
   const [receiverStreams, setReceiverStreams] = useState<
     Map<string, MediaStream>
   >(new Map());
+  console.log(receiverRefs);
+  const createRecieveOffer = useCallback(
+    async (roomId: string, socketId: string, socket: Socket) => {
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+
+      if (!receiverRefs.current.has(socketId)) {
+        receiverRefs.current.set(socketId, pc);
+      } else return; // already exists, bail early
+
+      pc.onicecandidate = (ev: RTCPeerConnectionIceEvent) => {
+        if (ev.candidate) {
+          socket.emit("receiverCandidate", {
+            roomId,
+            id: socketId,
+            candidate: ev.candidate,
+          });
+        }
+      };
+
+      pc.ontrack = (ev: RTCTrackEvent) => {
+        setReceiverStreams((prev) => {
+          const next = new Map(prev);
+          next.set(socketId, ev.streams[0]);
+          return next;
+        });
+      };
+
+      const sdp = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+
+      await pc.setLocalDescription(new RTCSessionDescription(sdp));
+
+      socket.emit("receiverOffer", {
+        roomId,
+        sdp,
+        senderId: socketId,
+      });
+    },
+    [],
+  );
 
   // whole sending process here;
   useEffect(() => {
@@ -78,6 +127,7 @@ const VideoChat = ({
     // server tells us a new user's stream is ready to be pulled
     socket.on("new-user-enter", (senderId: string) => {
       if (!receiverRefs.current.has(senderId)) {
+        console.log("came in here", senderId);
         createRecieveOffer(roomId, senderId, socket);
       }
     });
@@ -86,6 +136,19 @@ const VideoChat = ({
       socket.off("new-user-enter");
     };
   }, [socket, roomId]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("existing-streams-ready", (ids) => {
+      console.log("received", ids);
+      ids.forEach((i: string) => {
+        if (i === socket.id) return;
+        if (receiverRefs.current.has(i)) return;
+        createRecieveOffer(roomId, i, socket);
+      });
+    });
+  }, [socket, roomId, createRecieveOffer]);
 
   useEffect(() => {
     if (!socket) return;
@@ -118,82 +181,51 @@ const VideoChat = ({
     };
   }, [socket]);
 
-  const createRecieveOffer = async (
-    roomId: string,
-    socketId: string,
-    socket: Socket,
-  ) => {
-    // first let's create a receiver peer conn
-
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-
-    if (!receiverRefs.current.has(socketId))
-      receiverRefs.current.set(socketId, pc);
-    else;
-
-    pc.onicecandidate = (ev: RTCPeerConnectionIceEvent) => {
-      if (ev.candidate) {
-        socket.emit("receiverCandidate", {
-          roomId,
-          id: socketId,
-          candidate: ev.candidate,
-        });
-      }
-    };
-
-    pc.ontrack = (ev: RTCTrackEvent) => {
-      setReceiverStreams((prev) => {
-        const next = new Map(prev);
-        next.set(socketId, ev.streams[0]);
-        return next;
-      });
-    };
-
-    // now creating offer
-
-    const sdp = await pc.createOffer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: true,
-    });
-
-    await pc.setLocalDescription(new RTCSessionDescription(sdp));
-
-    socket.emit("receiverOffer", {
-      roomId,
-      sdp,
-      senderId: socketId,
-    });
-  };
-
   return (
-    <div className="w-full h-full z-0 ">
-      <div className="w-full flex justify-center ">
-        <button onClick={() => {
-          socket.emit("find-partner-room", roomId); 
-        }} className="bg-white p-3 text-black rounded-lg">Add</button>
+    <div className="w-full min-h-full overflow-hidden z-0">
+      {/* <div className="w-full flex justify-center ">
         <FloatingDock />
-      </div>
-      <div className="grid h-full justify-end place-items-center grid-cols-2 gap-x-2  p-4">
-        <div className="relative h-[20vh] w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center">
-            <p className="absolute bottom-5 left-5  rounded-lg bg-[#1B1212] opacity-50 font-medium px-2  text-white">{userNick}</p>
-            <video  className="h-full w-full object-cover rounded-xl" autoPlay ref={userVideoRef}></video>
+      </div> */}
+      <div className="flex  gap-8 p-4 content-center justify-around flex-wrap h-full">
+        <div className="relative h-fit w-[38vw] lg:w-[30vw] aspect-video  rounded-xl bg-[#1A1A1B] flex justify-center items-center">
+          <p className="absolute bottom-5 left-5  rounded-lg bg-[#1B1212] opacity-50 font-medium px-2  text-white">
+            {userNick}
+          </p>
+          <video
+            className="h-full w-full object-cover rounded-xl"
+            autoPlay
+            ref={userVideoRef}
+          ></video>
         </div>
         {receiverStreams.size !== 0 &&
           Array.from(receiverStreams).map(([socketId, stream]) => (
             <div
               key={socketId}
-              className="h-[20vh] relative w-[38vw] lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center"
+              className="relative w-[38vw] lg:w-[30vw] h-fit aspect-video rounded-xl bg-[#1A1A1B] flex justify-center items-center"
             >
-              <p className="absolute bottom-5 left-5  rounded-lg bg-[#1B1212] opacity-50 font-medium px-2  text-white">{users.find(u => u.socketId === socketId)?.nick || ""}</p>
-                <video
-                  autoPlay
-                  className="w-full object-cover h-full rounded-xl"
-                  ref={(el) => {
-                    if (el && el.srcObject !== stream) el.srcObject = stream;
-                  }}
-                ></video>
+              <p className="absolute bottom-5 left-5  rounded-lg bg-[#1B1212] opacity-50 font-medium px-2  text-white">
+                {users.find((u) => u.socketId === socketId)?.nick || ""}
+              </p>
+              <video
+                autoPlay
+                className="w-full object-cover h-full rounded-xl"
+                ref={(el) => {
+                  if (el && el.srcObject !== stream) el.srcObject = stream;
+                }}
+              ></video>
             </div>
           ))}
+        <div className="relative h-[12vh] w-[38vw] flex-col lg:w-[30vw] lg:h-[30vh] rounded-xl bg-[#1A1A1B] flex justify-center items-center">
+          <button
+            onClick={() => {
+              socket.emit("find-partner-room", roomId);
+            }}
+            className="p-3 bg-white cursor-pointer hover:scale-110 transition-all duration-150 text-black w-8 h-8 lg:w-12 lg:h-12 text-xl flex justify-center items-center rounded-full"
+          >
+            +
+          </button>
+          <p className="text-lg text-white mt-2">Add</p>
+        </div>
       </div>
     </div>
   );
